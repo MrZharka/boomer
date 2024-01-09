@@ -1,0 +1,9 @@
+body{
+    background-color:black;
+}
+
+#board{
+    border-style:solid;
+    border-width:2px;
+    border-color:white;
+}
