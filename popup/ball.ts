@@ -81,6 +81,9 @@ class Ball{
         b.setSpeed(500);
         b.setColor("gold");
         bulletArr.push(b);
+        const audio = new Audio("audio/blast.mp3");
+        audio.volume = .2;
+        audio.play();
         this.lastShot = this.shootCd;
     }
     kill(){
@@ -90,6 +93,14 @@ class Ball{
     deathAnimation(packs:Array<ParticlePack>){
         const pp = new ParticlePack(this.x, this.y);
         packs.push(pp);
+        let audio: HTMLAudioElement;
+        if(this.type === "player"){
+            audio = new Audio("audio/player_explosion.mp3");
+        }else if(this.type === "enemy"){
+            audio = new Audio("audio/enemy_explosion.mp3");
+        }
+        audio.volume = .5;
+        audio.play();
     }
     isdead(){
         return this.dead;
