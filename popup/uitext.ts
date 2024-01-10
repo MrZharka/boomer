@@ -33,10 +33,13 @@ class UIText{
     }
     draw(ctx:CanvasRenderingContext2D){
         if(!this.hide){
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 2;
             ctx.fillStyle = "white";
             ctx.font = this.font;
             ctx.textAlign = this.alignment;
-            ctx.fillText(this.text, this.posX, this.posY);    
+            ctx.strokeText(this.text, this.posX, this.posY);
+            ctx.fillText(this.text, this.posX, this.posY);
         }
     }
 }
