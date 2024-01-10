@@ -11,6 +11,7 @@ enum GameState{
 document.addEventListener("keydown", handleInputEvent);
 document.addEventListener("keyup", handleInputEvent);
 document.addEventListener("bulletOOR", bulletOOREvent);
+document.addEventListener("ParticlePack done", particlePackDoneEvent);
 
 const c: HTMLCanvasElement = 
     document.getElementById("board") as HTMLCanvasElement;
@@ -24,6 +25,7 @@ let gameOverText: UIText;
 let balls: Array<Ball> = [];
 let enemies: Array<Ball> = [];
 let spawnPositions: Array<Ball> = [];
+let particlePacks: Array<ParticlePack> = [];
 let spawnTimer:number = 3;
 let spawnTime:number = 10;
 let level:number = 0;
@@ -42,17 +44,16 @@ function initialize(){
     gameOverText = new UIText(`FINAL SCORE`, 320, 220);
     gameOverText.hide = true;
     level = 0;
-    state = GameState.Testing;
+    state = GameState.Game;
     sceneChangeTimer = SCENECHANGETIME;
-    if(state === GameState.Testing){
-        initTesting();
-    }
 }
 
 function initTesting(){
     const e = new Ball("enemy", 320, 100, 20);
     enemies.push(e);
     balls.push(e);
+    // const pp = new ParticlePack(320, 100);
+    // particlePacks.push(pp);
 }
 
 function testing(dt: number){
@@ -69,6 +70,7 @@ function testing(dt: number){
                 if(checkBallCollision(ball, e)){
                     ball.kill();
                     e.kill();
+                    e.deathAnimation(particlePacks);
                     setScore(score+10);
                 }
             });
@@ -82,6 +84,7 @@ function testing(dt: number){
             });
         }
     });
+    particlePacks.forEach(pp=>pp.update(dt));
 }
 
 let lastFrame: number = 0;
@@ -108,6 +111,7 @@ function draw(){
             ball.draw(ctx);
         }
     });
+    particlePacks.forEach(pp => pp.draw(ctx));
     scoreText.draw(ctx);
     gameOverText.draw(ctx);
 }
@@ -122,8 +126,30 @@ function gameOver(dt: number){
     if(keyShoot && sceneChangeTimer <= 0){
         initialize();
     }
+    particlePacks.forEach(pp=>pp.update(dt));
 }
 
+function aiStep(){
+    let updatedEs:Array<Ball> = []
+    enemies.forEach((e) => {
+        let wantedDirX = player.getX()-e.getX();
+        let wantedDirY = player.getY()-e.getY();
+        updatedEs.forEach((ue) => {
+            const diffX = ue.getX() - e.getX();
+            const diffY = ue.getY() - e.getY();
+            if(diffX*diffX + diffY*diffY < 10*10){
+                const angle = Math.PI/6;
+                const newUeDirX = ue.getDirX()*Math.cos(angle)-ue.getDirY()*Math.sin(angle);
+                const newUeDirY = ue.getDirX()*Math.sin(angle)+ue.getDirY()*Math.cos(angle);
+                ue.setDirection(newUeDirX, newUeDirY);
+                wantedDirX = wantedDirX*Math.cos(-angle)-wantedDirY*Math.sin(-angle);
+                wantedDirY = wantedDirY*Math.sin(-angle)+wantedDirY*Math.cos(-angle);
+            }
+        });
+        e.setDirection(wantedDirX, wantedDirY);
+        updatedEs.push(e);
+    });
+}
 function gameLoop(dt: number){
     if(player.isdead()){
         setState(GameState.Menu);
@@ -138,7 +164,7 @@ function gameLoop(dt: number){
 
     sceneChangeTimer -= dt;
     playerMovement();
-    enemies.forEach((e)=>e.setDirection(player.getX()-e.getX(), player.getY()-e.getY()));
+    aiStep();
 
     balls.forEach(ball => {
         ball.update(dt);
@@ -148,6 +174,7 @@ function gameLoop(dt: number){
                 if(checkBallCollision(ball, e)){
                     ball.kill();
                     e.kill();
+                    e.deathAnimation(particlePacks);
                     setScore(score+10);
                 }
             });
@@ -157,10 +184,12 @@ function gameLoop(dt: number){
             enemies.forEach((e) => {
                 if(checkBallCollision(player, e)){
                     player.kill();
+                    player.deathAnimation(particlePacks);
                 }
             });
         }
     });
+    particlePacks.forEach(pp => pp.update(dt));
 }
 
 function playerMovement(){
@@ -236,6 +265,9 @@ function keepPlayerOnBoard(deltaTime:number){
 }
 
 function checkBallCollision(b1:Ball, b2:Ball){
+    if(b1.isdead() || b2.isdead()){
+        return false;
+    }
     const b1X = b1.getX();
     const b1Y = b1.getY();
     const b2X = b2.getX();
@@ -270,6 +302,11 @@ function bulletOOREvent(ev:Event){
     elist = enemies.filter((e) => !e.isdead());
     balls = blist;
     enemies = elist;
+}
+function particlePackDoneEvent(ev:Event){
+    let pplist:Array<ParticlePack> = [];
+    pplist = particlePacks.filter((pp) => !pp.isDone());
+    particlePacks = pplist;
 }
 
 initialize();

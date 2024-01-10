@@ -87,7 +87,10 @@ class Ball{
         this.dead = true;
         document.dispatchEvent(new Event("bulletOOR"));
     }
-
+    deathAnimation(packs:Array<ParticlePack>){
+        const pp = new ParticlePack(this.x, this.y);
+        packs.push(pp);
+    }
     isdead(){
         return this.dead;
     }
