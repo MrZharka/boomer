@@ -1,14 +1,14 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Boomer",
-  "version": "0.2",
+  "version": "0.3",
   
   "description": "A game for the browser.",
   "icons": {
     "48": "icons/boomer-48.png"
   },
   
-  "browser_action": {
+  "action": {
     "default_icon": "icons/boomer-32.png",
     "default_title": "Boomer",
     "default_popup": "popup/boomer.html"
