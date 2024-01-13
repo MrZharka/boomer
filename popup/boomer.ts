@@ -3,6 +3,7 @@ let keyDown: boolean = false;
 let keyLeft: boolean = false;
 let keyRight: boolean = false;
 let keyShoot: boolean = false;
+let keyBomb: boolean = false;
 
 enum GameState{
     Menu, Game, Testing
@@ -21,13 +22,15 @@ let player: Ball;
 let score: number = 0;
 let scoreText: UIText;
 let gameOverText: UIText;
+let megaBombText:UIText;
 
 let balls: Array<Ball> = [];
 let enemies: Array<Ball> = [];
 let spawnPositions: Array<Ball> = [];
 let particlePacks: Array<ParticlePack> = [];
 let spawnTimer:number = 3;
-let spawnTime:number = 10;
+let shortSpawnTime:number = 3;
+let longSpawnTIme:number = 10;
 let level:number = 0;
 let state: GameState = GameState.Game;
 let sceneChangeTimer:number = SCENECHANGETIME;
@@ -37,12 +40,14 @@ function initialize(){
     balls = [player];
     enemies = [];
     createSpawnPoints();
-    spawnTimer = 3;
+    spawnTimer = shortSpawnTime;
     score = 0;
     scoreText = new UIText(`SCORE`, 10,30);
     scoreText.setAlignment("start");
     gameOverText = new UIText(`FINAL SCORE`, 320, 220);
     gameOverText.hide = true;
+    megaBombText = new UIText(`${player.getMegaBombProgress()} / ${player.getMegaBombCd()}`
+    ,50, 60);
     level = 0;
     state = GameState.Game;
     sceneChangeTimer = SCENECHANGETIME;
@@ -113,6 +118,7 @@ function draw(){
     });
     particlePacks.forEach(pp => pp.draw(ctx));
     scoreText.draw(ctx);
+    megaBombText.draw(ctx);
     gameOverText.draw(ctx);
 }
 
@@ -159,7 +165,7 @@ function gameLoop(dt: number){
     spawnTimer -= dt;
     if(spawnTimer <= 0){
         nextLevel();
-        spawnTimer = spawnTime;
+        spawnTimer = longSpawnTIme;
     }
 
     sceneChangeTimer -= dt;
@@ -176,6 +182,7 @@ function gameLoop(dt: number){
                     e.kill();
                     e.deathAnimation(particlePacks);
                     setScore(score+10);
+                    incPowerUpProgress(1);
                 }
             });
         }
@@ -209,6 +216,11 @@ function playerMovement(){
     if(keyShoot && sceneChangeTimer <= 0){
         player.shoot(balls);
     }
+    if(keyBomb && !(player.getMegaBombProgress() < player.getMegaBombCd())){
+        setScore(score + enemies.length*10);
+        player.megabomb(enemies, particlePacks);
+        incPowerUpProgress(0);
+    }
     player.setDirection(dirX, dirY);
 
 }
@@ -220,6 +232,11 @@ function setState(state: GameState){
 function setScore(score:number){
     this.score = score;
     scoreText.setText(`${this.score}`);
+}
+
+function incPowerUpProgress(amount:number){
+    player.incMegaBombProgress(amount);
+    megaBombText.setText(`${player.getMegaBombProgress()} / ${player.getMegaBombCd()}`);
 }
 
 function nextLevel(){
@@ -294,6 +311,9 @@ function handleInputEvent(ev: KeyboardEvent){
     if(ev.key === "k"){
         keyShoot = ev.type === "keydown";
     }
+    if(ev.key === "l"){
+        keyBomb = ev.type === "keydown";
+    }
 }
 function bulletOOREvent(ev:Event){
     let blist:Array<Ball> = [];
@@ -301,6 +321,9 @@ function bulletOOREvent(ev:Event){
     blist = balls.filter((b) => !b.isdead());
     elist = enemies.filter((e) => !e.isdead());
     balls = blist;
+    if(enemies.length > 0 && elist.length === 0 && spawnTimer > shortSpawnTime){
+        spawnTimer = shortSpawnTime;
+    }
     enemies = elist;
 }
 function particlePackDoneEvent(ev:Event){

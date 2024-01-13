@@ -20,6 +20,10 @@ class Ball{
     private lastShot:number = 0
     private shootCd:number = 0.2 //...in s.
 
+    // nuke power-up.
+    private megaBombCd:number = 20;
+    private megaBombprogress = 0;
+
     constructor(type:string, x:number = 0, y:number = 0, radius: number = 20){
         this.type = type;
         this.x = x;
@@ -70,6 +74,32 @@ class Ball{
     }
     setColor(color:string){
         this.color = color;
+    }
+
+    megabomb(enemyArr:Array<Ball>, pcks:Array<ParticlePack>){ // Nuke all enemies.
+        if(this.megaBombprogress < this.megaBombCd){
+            return;
+        }
+        enemyArr.forEach(e => {
+            e.kill();
+            e.deathAnimation(pcks);
+        });
+        this.megaBombprogress = 0;
+    }
+    getMegaBombCd(){
+        return this.megaBombCd;
+    }
+    getMegaBombProgress(){
+        return this.megaBombprogress;
+    }
+    setMegaBombProgress(value:number){
+        this.megaBombprogress = value;
+        if(this.megaBombprogress > this.megaBombCd){
+            this.megaBombprogress = this.megaBombCd;
+        }
+    }
+    incMegaBombProgress(amount:number){
+        this.setMegaBombProgress(this.megaBombprogress + amount);
     }
 
     shoot(bulletArr:Array<Ball>){
