@@ -3,18 +3,27 @@ const XLIMITHIGH = 800;
 const YLIMITLOW = -100;
 const YLIMITHIGH = 600;
 
+enum BallType{
+    Player,
+    Enemy,
+    Bullet,
+    Spawner
+};
+
 class Ball{
-    private radius: number;
-    private speed: number = 120;
-    private color:string = "orange";
-    private x: number;
-    private y: number;
-    private dirX: number = 0;
-    private dirY: number = 0;
-    private lastDirX:number = 1;
-    private lastDirY:number = 0;
-    private dead:boolean = false;
-    private type:string = "";
+    protected m_radius: number;
+    protected m_speed: number = 120;
+    protected m_color:string;
+    protected m_x: number;
+    protected m_y: number;
+    protected m_dirX: number = 0;
+    protected m_dirY: number = 0;
+    protected m_shootDirX:number = 1;
+    protected m_shootDirY:number = 0;
+    protected m_lastDirX:number = 1;
+    protected m_lastDirY:number = 0;
+    protected m_dead:boolean = false;
+    protected m_type:BallType;
     
     // for shooting cooldown.
     private lastShot:number = 0
@@ -24,56 +33,87 @@ class Ball{
     private megaBombCd:number = 20;
     private megaBombprogress = 0;
 
-    constructor(type:string, x:number = 0, y:number = 0, radius: number = 20){
-        this.type = type;
-        this.x = x;
-        this.y = y;
-        this.radius = radius;
+    constructor(type:BallType, x:number = 0, y:number = 0, radius: number = 20){
+        this.m_type = type;
+        this.m_x = x;
+        this.m_y = y;
+        this.m_radius = radius;
     }
 
-    getType():string{
-        return this.type;
+    get type():BallType{
+        return this.m_type;
     }
-    getX():number{
-        return this.x;
+
+    get x():number{
+        return this.m_x;
     }
-    getY():number{
-        return this.y;
+
+    get y():number{
+        return this.m_y;
     }
-    getDirX():number{
-        return this.dirX;
+
+    get dirX():number{
+        return this.m_dirX;
     }
-    getDirY():number{
-        return this.dirY;
+
+    get dirY():number{
+        return this.m_dirY;
     }
-    getRadius():number{
-        return this.radius;
+
+    get shootDirX():number{
+        return this.m_shootDirX;
     }
-    setRadius(radius:number){
-        if(radius > 0){
-            this.radius = radius;
+    set shootDirX(x: number){
+        if(x === 0 && this.m_shootDirY === 0){
+            this.m_shootDirX = 0;
         }else{
-            console.log("radius must be positiv none zero");
+            this.m_shootDirX = x/Math.sqrt(x*x + this.m_shootDirY*this.m_shootDirY);
         }
+    }
+    get shootDirY():number{
+        return this.m_shootDirY;
+    }
+    set shootDirY(y: number){
+        if(y === 0 && this.m_shootDirX === 0){
+            this.m_shootDirY = 0;
+        }else{
+            this.m_shootDirY = y/Math.sqrt(this.m_shootDirX*this.m_shootDirX + y*y);
+        }
+    }
+    get radius():number{
+        return this.m_radius;
+    }
+    set radius(radius:number){
+        this.m_radius = radius;
     }
     setDirection(x:number, y:number){
-        if(this.dirX != 0 || this.dirY != 0){
-            this.lastDirX = this.dirX;
-            this.lastDirY = this.dirY;
+        if(this.m_dirX != 0 || this.m_dirY != 0){
+            this.m_lastDirX = this.m_dirX;
+            this.m_lastDirY = this.m_dirY;
         }
         if(x === 0 && y === 0){
-            this.dirX = x;
-            this.dirY = y;
+            this.m_dirX = x;
+            this.m_dirY = y;
         }else{
-            this.dirX = x/Math.sqrt(x*x + y*y);
-            this.dirY = y/Math.sqrt(x*x + y*y);
+            this.m_dirX = x/Math.sqrt(x*x + y*y);
+            this.m_dirY = y/Math.sqrt(x*x + y*y);
         }
     }
-    setSpeed(speed:number){
-        this.speed = speed;
+    setShootDirection(x:number, y:number){
+        this.m_shootDirX = x/Math.sqrt(x*x + y*y);
+        this.m_shootDirY = y/Math.sqrt(x*x + y*y);
     }
-    setColor(color:string){
-        this.color = color;
+    get speed(){
+        return this.m_speed;
+    }
+    set speed(speed:number){
+        this.m_speed = speed;
+    }
+    get color(){
+        return this.m_color;
+    }
+    set color(color:string){
+        this.m_color = color;
     }
 
     megabomb(enemyArr:Array<Ball>, pcks:Array<ParticlePack>){ // Nuke all enemies.
@@ -106,10 +146,10 @@ class Ball{
         if(this.lastShot > 0){
             return;
         }
-        const b = new Ball("bullet", this.x, this.y, 4);
-        b.setDirection(this.lastDirX, this.lastDirY);
-        b.setSpeed(500);
-        b.setColor("gold");
+        const b = new Bullet(this.m_x, this.m_y);
+        b.setDirection(this.m_shootDirX, this.m_shootDirY);
+        b.speed = 500;
+        b.color = "gold";
         bulletArr.push(b);
         const audio = new Audio("audio/blast.mp3");
         audio.volume = .2;
@@ -117,57 +157,91 @@ class Ball{
         this.lastShot = this.shootCd;
     }
     kill(){
-        this.dead = true;
-        document.dispatchEvent(new Event("bulletOOR"));
+        this.m_dead = true;
     }
     deathAnimation(packs:Array<ParticlePack>){
-        const pp = new ParticlePack(this.x, this.y);
+        const pp = new ParticlePack(this.m_x, this.m_y);
         packs.push(pp);
         let audio: HTMLAudioElement;
-        if(this.type === "player"){
+        if(this.type === BallType.Player){
             audio = new Audio("audio/player_explosion.mp3");
-        }else if(this.type === "enemy"){
+        }else if(this.type === BallType.Enemy){
             audio = new Audio("audio/enemy_explosion.mp3");
         }
         audio.volume = .5;
         audio.play();
     }
-    isdead(){
-        return this.dead;
+    get dead(){
+        return this.m_dead;
     }
 
     update(deltaTime: number){
-        if(!this.dead){
-            this.moveInDirection(this.dirX, this.dirY, deltaTime);
+        if(!this.m_dead){
+            this.moveInDirection(this.m_dirX, this.m_dirY, deltaTime);
             this.lastShot -= deltaTime;    
-        }
-
-        if(this.x < XLIMITLOW || this.x > XLIMITHIGH || this.y < YLIMITLOW || this.y > YLIMITHIGH){
-            this.kill();
         }
     }
 
     moveInDirection(dirX:number, dirY:number, deltaTime:number){
-        this.x += dirX*this.speed * deltaTime;
-        this.y += dirY*this.speed*deltaTime;
+        this.m_x += dirX*this.m_speed * deltaTime;
+        this.m_y += dirY*this.m_speed*deltaTime;
     }
 
     draw(ctx: CanvasRenderingContext2D){
-        ctx.lineWidth = 5;
-        ctx.strokeStyle = "white";
-        if(this.type === "enemy"){
-            const t = Date.now()/1000;
-            const r = 255*Math.abs(Math.sin(t));
-            const g = 255*Math.abs(Math.sin(t+30));
-            const b = 255*Math.abs(Math.sin(t+45));
-            this.color = `rgb(${r}, ${g}, ${b})`;
-            ctx.strokeStyle = `rgb(${g}, ${b}, ${r})`;
-        }
-        ctx.fillStyle = this.color;
+        ctx.fillStyle = this.m_color;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+        ctx.arc(this.m_x, this.m_y, this.m_radius, 0, 2 * Math.PI);
         ctx.closePath();
         ctx.stroke();
         ctx.fill();    
+    }
+}
+
+class Bullet extends Ball{
+    constructor(x:number, y:number){
+        super(BallType.Bullet, x, y, 4);
+    }
+    update(dt: number){
+        super.update(dt);
+        if(this.x < XLIMITLOW || this.x > XLIMITHIGH || this.y < YLIMITLOW || this.y > YLIMITHIGH){
+            this.kill();
+        }
+    }
+    kill(){
+        super.kill();
+        document.dispatchEvent(new Event("onBulletDeath"));
+    }
+}
+
+class Player extends Ball{
+    constructor(x:number, y:number){
+        super(BallType.Player, x, y, 20);
+        this.color = "orange";
+        this.speed = 120;
+    }
+    kill(){
+        super.kill();
+        document.dispatchEvent(new Event("onPlayerDeath"));
+    }
+}
+
+class Enemy extends Ball{
+    constructor(x:number, y:number){
+        super(BallType.Enemy, x, y, 20);
+    }
+    draw(ctx: CanvasRenderingContext2D){
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "white";
+        const t = Date.now()/1000;
+        const r = 255*Math.abs(Math.sin(t));
+        const g = 255*Math.abs(Math.sin(t+30));
+        const b = 255*Math.abs(Math.sin(t+45));
+        this.color = `rgb(${r}, ${g}, ${b})`;
+        ctx.strokeStyle = `rgb(${g}, ${b}, ${r})`;
+        super.draw(ctx);
+    }
+    kill(){
+        super.kill();
+        document.dispatchEvent(new CustomEvent("onEnemyDeath", {detail:{caller: this}}));
     }
 }
