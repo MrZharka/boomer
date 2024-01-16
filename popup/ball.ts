@@ -207,6 +207,11 @@ class Bullet extends Ball{
             this.kill();
         }
     }
+    draw(ctx: CanvasRenderingContext2D){
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "white";
+        super.draw(ctx);
+    }
     kill(){
         super.kill();
         document.dispatchEvent(new Event("onBulletDeath"));
@@ -218,6 +223,11 @@ class Player extends Ball{
         super(BallType.Player, x, y, 20);
         this.color = "orange";
         this.speed = 120;
+    }
+    draw(ctx: CanvasRenderingContext2D){
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "white";
+        super.draw(ctx);
     }
     kill(){
         super.kill();

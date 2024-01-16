@@ -2,13 +2,7 @@ enum KeyName{
     MoveUp = 0, MoveDown, MoveLeft, MoveRight,
     ShootUp, ShootDown, ShootLeft, ShootRight
 };
-const keys: Array<Boolean> = [false, false, false, false, false, false, false];
-// let keyUp: boolean = false;
-// let keyDown: boolean = false;
-// let keyLeft: boolean = false;
-// let keyRight: boolean = false;
-// let keyShoot: boolean = false;
-// let keyBomb: boolean = false;
+const keys: Array<Boolean> = [false, false, false, false, false, false, false, false];
 
 enum GameState{
     Menu, Game, Testing
@@ -26,9 +20,8 @@ const c: HTMLCanvasElement =
 const ctx: CanvasRenderingContext2D = c.getContext("2d") as CanvasRenderingContext2D;
 const SCENECHANGETIME:number = 1;
 let score: number = 0;
-let scoreText: UIText;
-let gameOverText: UIText;
-let megaBombText:UIText;
+let hud: GUI;
+let gameOverMenu: GUI;
 
 let objects: Map<BallType, Array<Ball>> = new Map();
 let spawnPositions: Array<Ball> = [];
@@ -37,7 +30,7 @@ let spawnTimer:number = 3;
 let shortSpawnTime:number = 3;
 let longSpawnTIme:number = 10;
 let level:number = 0;
-let state: GameState = GameState.Game;
+let state: GameState = GameState.Menu;
 let sceneChangeTimer:number = SCENECHANGETIME;
 
 function initialize(){
@@ -48,15 +41,10 @@ function initialize(){
     createSpawnPoints();
     spawnTimer = shortSpawnTime;
     score = 0;
-    scoreText = new UIText(`SCORE`, 10,30);
-    scoreText.setAlignment("start");
-    gameOverText = new UIText(`FINAL SCORE`, 320, 220);
-    gameOverText.hide = true;
-    megaBombText = new UIText(`${player.getMegaBombProgress()} / ${player.getMegaBombCd()}`
-    ,50, 60);
     level = 0;
-    state = GameState.Game;
-    sceneChangeTimer = SCENECHANGETIME;
+    setState(GameState.Game);
+    buildHud();
+    buildGameOverMenu();
 }
 
 
@@ -81,24 +69,29 @@ function draw(){
         arr.forEach((obj: Ball) => obj.draw(ctx));
     });
     particlePacks.forEach(pp => pp.draw(ctx));
-    scoreText.draw(ctx);
-    megaBombText.draw(ctx);
-    gameOverText.draw(ctx);
+    if(state === GameState.Game){
+        hud.draw(ctx);
+    }else{
+        gameOverMenu.draw(ctx);
+    }
 }
 
 function gameOver(dt: number){
-    gameOverText.hide = false;
-    scoreText.setText(score.toString());
-    const y = gameOverText.getPosY();
-    scoreText.setAlignment("center");
-    scoreText.setPosition(320,y+30);
     sceneChangeTimer -= dt;
-    // if(keyShoot && sceneChangeTimer <= 0){
-    //     initialize();
-    // }
+    if(anyKey() && sceneChangeTimer <= 0){
+        initialize();
+    }
     particlePacks.forEach(pp=>pp.update(dt));
 }
 
+function anyKey(): Boolean{
+    for(let i = 0; i < keys.length; ++i){
+        if(keys[i]){
+            return true;
+        }
+    }
+    return false;
+}
 function aiStep(){
     let updatedEs:Array<Ball> = []
     objects.get(BallType.Enemy).forEach((e:Enemy) => {
@@ -193,31 +186,29 @@ function playerMovement(){
     if(shouldShoot){
         player.shoot(objects.get(BallType.Bullet));
     }
-    // if(keyShoot && sceneChangeTimer <= 0){
-    //     player.shoot(objects.get(BallType.Bullet));
-    // }
-    // if(keyBomb && !(player.getMegaBombProgress() < player.getMegaBombCd())){
-    //     setScore(score + objects.get(BallType.Enemy).length*10);
-    //     player.megabomb(objects.get(BallType.Enemy), particlePacks);
-    //     incPowerUpProgress(0);
-    // }
+
     player.setDirection(dirX, dirY);
 
 }
 function setState(_state: GameState){
     state = _state;
+    for(let i = 0; i < keys.length; ++i){
+        keys[i] = false;
+    }
     sceneChangeTimer = SCENECHANGETIME;
 }
 
 function setScore(_score:number){
     score = _score;
-    scoreText.setText(`${score}`);
+    document.dispatchEvent(new Event("scoreChange"));
 }
 
 function incPowerUpProgress(amount:number){
     const player = objects.get(BallType.Player)[0];
+    if(!player){
+        return;
+    }
     player.incMegaBombProgress(amount);
-    megaBombText.setText(`${player.getMegaBombProgress()} / ${player.getMegaBombCd()}`);
 }
 
 function nextLevel(){
@@ -322,5 +313,25 @@ function particlePackDoneEvent(ev:Event){
     particlePacks = pplist;
 }
 
+function buildHud(){
+    const scoreText = new UIText("SCORE", 10, 30);
+    scoreText.alignment = "start";
+    scoreText.addEventListener("scoreChange", (ev: Event)=>{
+        scoreText.text = `${score}`;
+    });
+    hud = new GUI();
+    hud.addElement(scoreText);
+}
+function buildGameOverMenu(){
+    const gameOverText = new UIText(`FINAL SCORE`, 320, 220);
+    gameOverMenu = new GUI();
+    const y = gameOverText.y;
+    const scoreText = new UIText("", 320, y+30);
+    scoreText.addEventListener("scoreChange", (ev: Event)=>{
+        scoreText.text = `${score}`;
+    });
+    gameOverMenu.addElement(gameOverText);
+    gameOverMenu.addElement(scoreText);
+}
 initialize();
 window.requestAnimationFrame(update);
