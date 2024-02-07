@@ -7,6 +7,7 @@ enum BallType{
     Player,
     Enemy,
     Bullet,
+    EnemyBullet,
     Spawner
 };
 
@@ -24,6 +25,8 @@ class Ball{
     protected m_lastDirY:number = 0;
     protected m_dead:boolean = false;
     protected m_type:BallType;
+    protected m_damage = 10;
+    protected m_health: number = 10;
     
     // for shooting cooldown.
     private lastShot:number = 0
@@ -86,6 +89,12 @@ class Ball{
     set radius(radius:number){
         this.m_radius = radius;
     }
+    get damage():number{
+        return this.m_damage;
+    }
+    set damage(n:number){
+        this.m_damage = n;
+    }
     setDirection(x:number, y:number){
         if(this.m_dirX != 0 || this.m_dirY != 0){
             this.m_lastDirX = this.m_dirX;
@@ -146,7 +155,7 @@ class Ball{
         if(this.lastShot > 0){
             return;
         }
-        const b = new Bullet(this.m_x, this.m_y);
+        const b = new Bullet(this.m_x, this.m_y, this.m_damage);
         b.setDirection(this.m_shootDirX, this.m_shootDirY);
         b.speed = 500;
         b.color = "gold";
@@ -155,6 +164,12 @@ class Ball{
         audio.volume = .2;
         audio.play();
         this.lastShot = this.shootCd;
+    }
+    takeDamage(dmg: number){
+        this.m_health -= dmg;
+        if(this.m_health <= 0){
+            this.kill();
+        }
     }
     kill(){
         this.m_dead = true;
@@ -198,8 +213,10 @@ class Ball{
 }
 
 class Bullet extends Ball{
-    constructor(x:number, y:number){
-        super(BallType.Bullet, x, y, 4);
+    constructor(x:number, y:number, damage: number, radius: number = 4, 
+        type = BallType.Bullet){
+            super(type, x, y, radius);
+            this.damage = damage;
     }
     update(dt: number){
         super.update(dt);
@@ -236,9 +253,10 @@ class Player extends Ball{
 }
 
 class Enemy extends Ball{
-    constructor(x:number, y:number){
-        super(BallType.Enemy, x, y, 20);
+    constructor(x:number, y:number, r:number = 20){
+        super(BallType.Enemy, x, y, r);
     }
+    
     draw(ctx: CanvasRenderingContext2D){
         ctx.lineWidth = 5;
         ctx.strokeStyle = "white";
@@ -250,8 +268,125 @@ class Enemy extends Ball{
         ctx.strokeStyle = `rgb(${g}, ${b}, ${r})`;
         super.draw(ctx);
     }
+
     kill(){
         super.kill();
         document.dispatchEvent(new CustomEvent("onEnemyDeath", {detail:{caller: this}}));
     }
+}
+
+enum BossAction{
+    Move, Idle, Attack
+};
+class Boss extends Enemy{
+    private WAIT_TIME = 3;
+    private SHOOT_TIME = 1;
+    private m_targetPointX:number;
+    private m_targetPointY:number;
+    private m_action: BossAction;
+    private m_nShots: number;
+    private m_waitTimer: number = this.WAIT_TIME;
+    set targetPointX(x:number){
+        this.m_targetPointX = x;
+    }
+    set targetPointY(y:number){
+        this.m_targetPointY = y;
+    }
+    constructor(x:number, y:number){
+        super(x, y, 50);
+        this.m_action = BossAction.Move;
+        this.m_health = 5000;
+    }
+    update(deltaTime: number){
+        if(this.m_action === BossAction.Move){
+            this.setDirection(this.m_targetPointX-this.m_x, this.m_targetPointY-this.m_y);
+            
+            this.moveInDirection(this.dirX, this.dirY, deltaTime);
+            if(Math.pow(this.m_targetPointX - this.m_x, 2)+Math.pow(this.m_targetPointY-this.m_y, 2) < 0.1){
+                this.m_action = BossAction.Idle;
+                this.m_waitTimer = this.WAIT_TIME;
+                this.m_nShots = 3;
+                this.setDirection(Math.random(), Math.random());
+            }
+        }else if(this.m_action === BossAction.Idle){
+            if(Math.pow(this.m_targetPointX - this.m_x, 2)+Math.pow(this.m_targetPointY-this.m_y, 2) > 2500){
+                const centerX = this.m_targetPointX - this.m_x;
+                const centerY = this.m_targetPointY - this.m_y;
+                const angle = (Math.random() * 2 - 1) * Math.PI / 3;
+                this.setDirection(-this.m_dirX, -this.m_dirY);
+            }
+            this.moveInDirection(this.dirX, this.dirY, deltaTime);
+            if(this.m_waitTimer > 0){
+                this.m_waitTimer -= deltaTime;
+            }else{
+                document.dispatchEvent(new CustomEvent("onBossFire", {detail:{caller:this}}));
+                this.m_waitTimer = this.SHOOT_TIME;
+                this.m_nShots -= 1;
+            }
+            if(this.m_nShots <= 0){
+                this.m_action = BossAction.Move;
+            }
+        }
+    }
+    draw(ctx: CanvasRenderingContext2D){
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "white";
+        const t = Date.now()/1000;
+        const r = 255*Math.abs(Math.sin(t));
+        const g = 255*Math.abs(Math.sin(t+30));
+        const b = 255*Math.abs(Math.sin(t+45));
+        this.color = `rgb(${b}, ${r}, ${g})`;
+        ctx.strokeStyle = `rgb(${g}, ${b}, ${r})`;
+        super.draw(ctx);
+    }
+    kill(){
+        super.kill();
+        document.dispatchEvent(new CustomEvent("onBossDeath", {detail:{caller: this}}));
+    }
+    shoot(bulletArr:Array<Ball>){
+        for(let i = 0; i < 5; ++i){
+            const newDir = rotateVector(this.m_shootDirX, this.m_shootDirY, (i/5+1/10)*Math.PI);
+            const b = new Bullet(this.m_x, this.m_y, this.m_damage, 15, BallType.EnemyBullet);
+            b.setDirection(newDir.x, newDir.y);
+            b.speed = 100;
+            b.color = "red";
+            bulletArr.push(b);
+        }
+    }
+}
+
+class Vector{
+    private m_x;
+    get x(){
+        return this.m_x;
+    }
+    set x(_x: number){
+        this.m_x = _x;
+    }
+
+    private m_y;
+    get y(){
+        return this.m_y;
+    }
+    set y(_y: number){
+        this.m_y = _y;
+    }
+    constructor(x:number, y:number){
+        this.m_x = x;
+        this.m_y = y;
+    }
+}
+
+/**
+ * 
+ * @param x x-component of vector
+ * @param y y-component of vector
+ * @param angle number of radians to rotate
+ * @returns A vector rotated angle amount of radians clockwise from the input vector.
+ */
+function rotateVector(x:number, y:number, angle:number): Vector{
+    const xOut = x*Math.cos(angle)-y*Math.sin(angle);
+    const yOut = x*Math.sin(angle)+y*Math.cos(angle);
+
+    return new Vector(xOut, yOut);
 }

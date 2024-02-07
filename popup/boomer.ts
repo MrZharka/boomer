@@ -13,6 +13,8 @@ document.addEventListener("keyup", handleInputEvent);
 document.addEventListener("onPlayerDeath", onPlayerDeath);
 document.addEventListener("onBulletDeath", onBulletDeath);
 document.addEventListener("onEnemyDeath", onEnemyDeath);
+document.addEventListener("onBossDeath", onBossDeath);
+document.addEventListener("onBossFire", onBossFire);
 document.addEventListener("ParticlePack done", particlePackDoneEvent);
 
 const c: HTMLCanvasElement = 
@@ -30,6 +32,7 @@ let spawnTimer:number = 3;
 let shortSpawnTime:number = 3;
 let longSpawnTIme:number = 10;
 let level:number = 0;
+let bossLevel:boolean = false;
 let state: GameState = GameState.Menu;
 let sceneChangeTimer:number = SCENECHANGETIME;
 
@@ -38,10 +41,12 @@ function initialize(){
     const player = objects.get(BallType.Player)[0];
     objects.set(BallType.Enemy, []);
     objects.set(BallType.Bullet, []);
+    objects.set(BallType.EnemyBullet, []);
     createSpawnPoints();
     spawnTimer = shortSpawnTime;
     score = 0;
     level = 0;
+    bossLevel = true;
     setState(GameState.Game);
     buildHud();
     buildGameOverMenu();
@@ -115,15 +120,19 @@ function aiStep(){
     });
 }
 function gameLoop(dt: number){
-    spawnTimer -= dt;
-    if(spawnTimer <= 0){
-        nextLevel();
-        spawnTimer = longSpawnTIme;
+    if(!bossLevel){
+        spawnTimer -= dt;
+        if(spawnTimer <= 0){
+            nextLevel();
+            spawnTimer = longSpawnTIme;
+        }    
+    }else if(objects.get(BallType.Enemy).length === 0){
+        spawnBoss();
     }
 
     sceneChangeTimer -= dt;
     playerMovement();
-    aiStep();
+    //aiStep();
     objects.get(BallType.Player).forEach(p => {
         p.update(dt);
         keepPlayerOnBoard(dt);
@@ -137,11 +146,20 @@ function gameLoop(dt: number){
         b.update(dt);
         objects.get(BallType.Enemy).forEach(e => {
             if(checkBallCollision(b, e)){
+                e.takeDamage(b.damage);
                 b.kill();
-                e.kill();
             }
         });
-    })
+    });
+    objects.get(BallType.EnemyBullet).forEach(b => {
+        b.update(dt);
+        objects.get(BallType.Player).forEach(p => {
+            if(checkBallCollision(b, p)){
+                p.takeDamage(b.damage);
+                b.kill();
+            }
+        });
+    });
     objects.get(BallType.Enemy).forEach(e => {
         e.update(dt);
     });
@@ -225,6 +243,14 @@ function spawnEnemies(amount:number, speed:number){
         objects.get(BallType.Enemy).push(enemy);
     }
 }
+function spawnBoss(){
+    const spawnp = spawnPositions[16];
+    const enemy: Boss = new Boss(spawnp.x, spawnp.y);
+    enemy.speed = 50;
+    enemy.targetPointX = 300;
+    enemy.targetPointY = 100;
+    objects.get(BallType.Enemy).push(enemy);
+}
 
 function createSpawnPoints(){
     for(let x = 0; x < 640; x+=40){
@@ -306,6 +332,16 @@ function onEnemyDeath(ev: CustomEvent){
     incPowerUpProgress(1);
     const elist:Array<Ball> = objects.get(BallType.Enemy).filter(e => !e.dead);
     objects.set(BallType.Enemy, elist);
+}
+function onBossDeath(ev: CustomEvent){
+    const boss: Boss = ev.detail.caller;
+    boss.deathAnimation(particlePacks);
+    const elist:Array<Ball> = objects.get(BallType.Enemy).filter(e => !e.dead);
+    objects.set(BallType.Enemy, elist);
+}
+function onBossFire(ev: CustomEvent){
+    const boss: Boss = ev.detail.caller;
+    boss.shoot(objects.get(BallType.EnemyBullet));
 }
 function particlePackDoneEvent(ev:Event){
     let pplist:Array<ParticlePack> = [];
